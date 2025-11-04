@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PersonFi Demo</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;padding:20px;background:#0f1115;color:#e7e7ea}
+    h1{font-size:20px}
+    .card{background:#1b1d24;border:1px solid #2a2d36;border-radius:12px;padding:16px;margin-bottom:20px}
+    input[type=file]{color:#e7e7ea}
+    button{background:#5b7cfa;color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer}
+    button:hover{background:#496bef}
+    pre{background:#0d0f14;padding:12px;border-radius:8px;overflow:auto;max-height:300px}
+    img{max-width:100%;border-radius:10px;border:1px solid #2a2d36;background:#fff}
+  </style>
+</head>
+<body>
+  <h1>PersonFi Demo UI</h1>
+  <div class="card">
+    <h2>Analyze clothing (JSON)</h2>
+    <input id="analyzeFile" type="file" accept="image/*" />
+    <button id="analyzeBtn">Analyze</button>
+    <pre id="analyzeOut">Upload an image and click Analyze.</pre>
+  </div>
+
+  <div class="card">
+    <h2>Generate clothing-only image</h2>
+    <input id="genFile" type="file" accept="image/*" />
+    <button id="genBtn">Generate Clothing Image</button>
+    <div id="genImgWrap"></div>
+  </div>
+
+<script>
+const apiBase = (window.location && window.location.origin && window.location.origin !== 'null')
+  ? window.location.origin
+  : 'http://127.0.0.1:8000';
+
+async function postImage(url, file){
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(url, { method: 'POST', body: fd });
+  if(!res.ok){
+    const ct = res.headers.get('content-type') || '';
+    let details = res.status + ' ' + res.statusText;
+    try{
+      if(ct.includes('application/json')){ details += ' ' + JSON.stringify(await res.json()); }
+      else { details += ' ' + (await res.text()); }
+    }catch(_){}
+    throw new Error(details);
+  }
+  return res;
+}
+
+const analyzeBtn = document.getElementById('analyzeBtn');
+const analyzeFile = document.getElementById('analyzeFile');
+const analyzeOut = document.getElementById('analyzeOut');
+
+analyzeBtn.addEventListener('click', async () => {
+  const f = analyzeFile.files[0];
+  if(!f){ analyzeOut.textContent = 'Please choose an image.'; return; }
+  analyzeOut.textContent = 'Analyzing...';
+  try{
+    const res = await postImage(`${apiBase}/analyze`, f);
+    const data = await res.json();
+    analyzeOut.textContent = JSON.stringify(data, null, 2);
+  }catch(err){
+    analyzeOut.textContent = 'Error: ' + err.message;
+  }
+});
+
+const genBtn = document.getElementById('genBtn');
+const genFile = document.getElementById('genFile');
+const genImgWrap = document.getElementById('genImgWrap');
+
+genBtn.addEventListener('click', async () => {
+  const f = genFile.files[0];
+  if(!f){ genImgWrap.innerHTML = '<p>Please choose an image.</p>'; return; }
+  genImgWrap.innerHTML = '<p>Generating...</p>';
+  try{
+    // Optional: check readiness endpoint first to surface routing issues
+    try { await fetch(`${apiBase}/generate-clothing/ready`, { method: 'GET' }); } catch {}
+    const res = await postImage(`${apiBase}/generate-clothing`, f);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    genImgWrap.innerHTML = `<img src="${url}" alt="Generated clothing"/>`;
+  }catch(err){
+    genImgWrap.innerHTML = '<p>Error: ' + err.message + '</p>';
+  }
+});
+</script>
+</body>
+</html>

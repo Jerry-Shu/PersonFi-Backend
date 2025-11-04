@@ -1,31 +1,62 @@
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
 
-from .supabase_client import get_supabase
+from dotenv import load_dotenv, find_dotenv
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
-app = FastAPI(title="PersonFi Backend API", version="0.1.0")
+from .analyzer import analyze_items
+from .generate_api import router as generate_router
+
+# -------- dotenv：无论从哪里启动都能加载到 .env --------
+env_path = find_dotenv(filename=".env", usecwd=True)
+if not env_path:
+    env_path = str((Path(__file__).resolve().parent / ".env"))
+load_dotenv(env_path, override=True)
+
+app = FastAPI(title="PersonFi Backend API (analyze-only, minimal)", version="0.4.0")
+
+# -------- CORS（本地前端测试方便） --------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # 生产环境请收紧或改为具体域名
+    allow_credentials=False,  # 避免与 "*" 冲突导致浏览器拦截
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# UI demo page (optional): served at /ui/
+app.mount(
+    "/ui",
+    StaticFiles(directory=str((Path(__file__).resolve().parent / "static")), html=True),
+    name="ui",
+)
 
 
+# -------- 健康检查 --------
 @app.get("/hello")
 def hello():
-    """A single sample endpoint.
+    return {
+        "message": "Hello from FastAPI. PersonFi analyze-only API (minimal) ready.",
+        "supabaseConfigured": False,
+    }
 
-    If Supabase env vars are configured, it confirms the client is ready.
-    Otherwise, it still responds with a friendly message.
+# -------- 主接口：只做“识别”，只回三字段 --------
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...)):
     """
-    sb = get_supabase()
-    if sb is None:
-        return {
-            "message": "Hello from FastAPI. Supabase is not configured yet.",
-            "supabaseConfigured": False,
-            "hint": "Set SUPABASE_URL and SUPABASE_ANON_KEY in your environment or .env file.",
-        }
+    上传一张含有人的照片，识别衣物信息。
+    返回 JSON：{ "items": [ {item_category, item_color, item_brand}, ... ] }
+    """
+    raw_bytes = await file.read()
+    mime = file.content_type or "image/png"
+    payload = await analyze_items(raw_bytes=raw_bytes, mime=mime)
+    return JSONResponse(payload)
 
-    try:
-        # We don't assume any tables exist; just report that the client is configured.
-        return {
-            "message": "Hello from FastAPI with Supabase configured.",
-            "supabaseConfigured": True,
-        }
-    except Exception as e:
-        # Surface any unexpected client errors
-        raise HTTPException(status_code=500, detail=str(e))
+
+# -------- 生成接口（图生图：只输出衣物 PNG） --------
+app.include_router(generate_router)
+
+
+
