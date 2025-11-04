@@ -12,25 +12,23 @@
   #resultImg{max-width:100%;border:1px solid #e5e7eb;border-radius:8px}
 </style>
 
-<h1>PersonFi — 服装识别（JSON） & 图片+Prompt 生图</h1>
+<h1>PersonFi — Clothing Analysis (JSON) & Image + Prompt Generation</h1>
 
-<!-- 按钮1：分析（上传图片→JSON） -->
 <div class="row">
   <input id="file" type="file" accept="image/*" />
-  <button class="btn" id="btnAnalyze">分析（返回JSON）</button>
+  <button class="btn" id="btnAnalyze">Analyze (JSON)</button>
 </div>
 
 <pre id="out"></pre>
 
 <hr style="margin:24px 0">
 
-<!-- 按钮2：图片 + Prompt -> 生成单张图 -->
-<h2>图片 + Prompt 生成</h2>
+<h2>Image + Prompt Generation</h2>
 <div class="row" style="flex-direction:column;align-items:stretch">
-  <textarea id="prompt" placeholder="例如：a burgundy blazer isolated on transparent background, realistic e-commerce photo"></textarea>
+  <textarea id="prompt" placeholder="e.g.: a burgundy blazer isolated on transparent background, realistic e-commerce photo"></textarea>
   <div class="row" style="justify-content:space-between">
     <div>
-      尺寸：
+      Size:
       <select id="size">
         <option>1024x1024</option>
         <option>768x768</option>
@@ -38,12 +36,12 @@
         <option>256x256</option>
       </select>
     </div>
-    <button class="btn" id="btnImg2Img">根据 Prompt + 图片 生成</button>
+    <button class="btn" id="btnImg2Img">Generate from Prompt + Image</button>
   </div>
 </div>
 
 <div id="imgwrap" style="display:none">
-  <h3>生成结果</h3>
+  <h3>Result</h3>
   <img id="resultImg" alt="img2img result"/>
 </div>
 
@@ -52,7 +50,7 @@ const $ = id => document.getElementById(id);
 
 async function postFile(url){
   const f = $("file").files[0];
-  if (!f) throw new Error("请选择图片");
+  if (!f) throw new Error("Please select an image");
   const fd = new FormData();
   fd.append("file", f);
   const res = await fetch(url, { method:"POST", body: fd });
@@ -68,15 +66,15 @@ $("btnAnalyze").onclick = async () => {
     const {raw, data} = await postFile("http://127.0.0.1:8000/analyze");
     $("out").textContent = data ? JSON.stringify(data, null, 2) : raw;
   } catch (e) {
-    $("out").textContent = "请求失败：" + e;
+    $("out").textContent = "Request failed: " + e;
   }
 };
 
 $("btnImg2Img").onclick = async () => {
   const f = $("file").files[0];
-  if (!f) return alert("请先选择图片");
+  if (!f) return alert("Please choose an image first");
   const prompt = $("prompt").value.trim();
-  if (!prompt) return alert("请填写 Prompt");
+  if (!prompt) return alert("Please fill the Prompt");
   const size = $("size").value;
 
   const fd = new FormData();
@@ -95,7 +93,7 @@ $("btnImg2Img").onclick = async () => {
     $("imgwrap").style.display = "block";
     $("resultImg").src = "data:image/png;base64," + data.image_png_base64;
   } catch (e) {
-    $("out").textContent = "请求失败：" + e;
+    $("out").textContent = "Request failed: " + e;
   }
 };
 </script>
